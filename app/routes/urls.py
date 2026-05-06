@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import RedirectResponse
 from datetime import datetime, timezone
 
 from app.models.url import ShortenRequest, ShortenResponse
@@ -44,3 +45,12 @@ async def shorten_url(request: ShortenRequest):
         original_url=original_url,
         created_at=document["created_at"],
     )
+
+@router.get("/{code}")
+async def redirect_url(code: str):
+    document = await database.db["urls"].find_one({"short_code": code})
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Short URL not found")
+
+    return RedirectResponse(url=document["original_url"], status_code=307)
