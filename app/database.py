@@ -21,6 +21,9 @@ async def connect_db():
     mongo_client = AsyncIOMotorClient(settings.mongo_url)
     db = mongo_client[settings.mongo_db_name]
 
+    # TTL index — MongoDB auto-deletes documents when expires_at is reached
+    await db["urls"].create_index("expires_at", expireAfterSeconds=0)
+
     # Redis
     redis = await aioredis.from_url(
         settings.redis_url,
