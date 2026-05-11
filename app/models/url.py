@@ -1,13 +1,13 @@
 from pydantic import BaseModel, HttpUrl
-from datetime import datetime
 from typing import Optional
+from datetime import datetime
 
 
 class ShortenRequest(BaseModel):
     """What the client sends to POST /shorten"""
-    original_url: HttpUrl                  # Pydantic validates this is a real URL
-    custom_code: Optional[str] = None      # Optional custom alias (e.g. "my-sale")
-    ttl_days: Optional[int] = 30           # How many days until the link expires
+    url: HttpUrl
+    custom_code: Optional[str] = None
+    ttl_days: Optional[int] = 30
 
 
 class ShortenResponse(BaseModel):
@@ -16,7 +16,15 @@ class ShortenResponse(BaseModel):
     short_url: str
     original_url: str
     created_at: datetime
-    expires_at: datetime                   # TU-5: when this link will be deleted
+    expires_at: Optional[datetime] = None
+
+
+class StatsResponse(BaseModel):
+    short_code: str
+    original_url: str
+    click_count: int
+    created_at: datetime
+    expires_at: Optional[datetime] = None
 
 
 class URLDocument(BaseModel):
@@ -24,5 +32,5 @@ class URLDocument(BaseModel):
     short_code: str
     original_url: str
     created_at: datetime
-    click_count: int = 0                   # TU-6 will use this
-    expires_at: Optional[datetime] = None  # TU-5: TTL field for MongoDB index
+    expires_at: Optional[datetime] = None
+    click_count: int = 0          # tracks total redirects, default 0
