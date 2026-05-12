@@ -4,6 +4,7 @@ class Settings(BaseSettings):
     mongo_url: str
     mongo_db_name: str
     redis_url: str
+    kafka_bootstrap_servers: str = "localhost:9092"
     app_host: str = "0.0.0.0"
     app_port: int = 8000
 

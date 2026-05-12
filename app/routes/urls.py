@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from app.models.url import ShortenRequest, ShortenResponse, StatsResponse
 from app.services.shortener import generate_short_code
 from app.services.cache_service import get_cached_url, set_cached_url
+from app.services.kafka_producer import publish_click_event
 import app.database as database
 
 router = APIRouter()
@@ -81,6 +82,7 @@ async def redirect_url(code: str):
             {"short_code": code},
             {"$inc": {"click_count": 1}}
         )
+        await publish_click_event(code)  # fire click event to Kafka
         return RedirectResponse(url=cached_url, status_code=307)
 
     document = await database.db["urls"].find_one({"short_code": code})
@@ -94,5 +96,5 @@ async def redirect_url(code: str):
         {"short_code": code},
         {"$inc": {"click_count": 1}}
     )
-
+    await publish_click_event(code)  # fire click event to Kafka
     return RedirectResponse(url=document["original_url"], status_code=307)
