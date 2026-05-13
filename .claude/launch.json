@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "FastAPI app",
+      "runtimeExecutable": "uvicorn",
+      "runtimeArgs": ["app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"],
+      "port": 8000
+    },
+    {
+      "name": "Kafka consumer",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "consumer_service.main"],
+      "port": 0
+    }
+  ]
+}
