@@ -4,6 +4,7 @@ import os
 import signal
 
 from consumer_service.consumer import ClickEventConsumer
+from consumer_service.cassandra_client import init_cassandra
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 async def main():
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+
+    session = init_cassandra()
+
     consumer = ClickEventConsumer(bootstrap_servers=bootstrap_servers)
 
     loop = asyncio.get_running_loop()

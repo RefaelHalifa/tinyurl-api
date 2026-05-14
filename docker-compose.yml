@@ -47,6 +47,17 @@ services:
       retries: 10
       start_period: 30s
 
+  cassandra:
+    image: cassandra:4.1
+    ports:
+      - "9042:9042"
+    healthcheck:
+      test: [ "CMD", "cqlsh", "-e", "describe keyspaces" ]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
   app:
     build: .
     ports:
@@ -71,10 +82,14 @@ services:
       dockerfile: consumer_service/Dockerfile
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CASSANDRA_HOST=cassandra
     depends_on:
       kafka:
         condition: service_healthy
+      cassandra:
+        condition: service_healthy
     restart: on-failure
+    
 
 volumes:
   mongo_data:
