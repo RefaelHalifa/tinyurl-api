@@ -18,8 +18,8 @@ async def main():
 
     session = init_cassandra()
 
-    consumer = ClickEventConsumer(bootstrap_servers=bootstrap_servers)
-
+    consumer = ClickEventConsumer(bootstrap_servers=bootstrap_servers, cassandra_session=session)
+    
     loop = asyncio.get_running_loop()
     stop_event = asyncio.Event()
 
