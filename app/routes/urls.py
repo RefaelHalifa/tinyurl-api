@@ -16,7 +16,7 @@ MAX_RETRIES = 5  # max collision retries before giving up
 
 @router.post("/shorten", response_model=ShortenResponse)
 async def shorten_url(request: ShortenRequest):
-    original_url = str(request.url)
+    original_url = str(request.original_url)
 
     # --- Resolve the short code ---
     if request.custom_code:

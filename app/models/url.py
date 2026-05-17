@@ -5,7 +5,7 @@ from datetime import datetime
 
 class ShortenRequest(BaseModel):
     """What the client sends to POST /shorten"""
-    url: HttpUrl
+    original_url: HttpUrl
     custom_code: Optional[str] = None
     ttl_days: Optional[int] = 30
 
