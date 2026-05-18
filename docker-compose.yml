@@ -75,6 +75,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      cassandra:
+        condition: service_healthy
 
   consumer:
     build:

@@ -2,10 +2,11 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
 from datetime import datetime, timezone, timedelta
 
-from app.models.url import ShortenRequest, ShortenResponse, StatsResponse
+from app.models.url import ShortenRequest, ShortenResponse, StatsResponse, AnalyticsResponse, ClickEvent
 from app.services.shortener import generate_short_code
 from app.services.cache_service import get_cached_url, set_cached_url
 from app.services.kafka_producer import publish_click_event
+from app.services.cassandra_service import cassandra_service
 import app.database as database
 
 router = APIRouter()
@@ -43,7 +44,6 @@ async def shorten_url(request: ShortenRequest):
         "short_code": short_code,
         "original_url": original_url,
         "created_at": datetime.now(timezone.utc),
-        "click_count": 0,
         "expires_at": expires_at,
     }
 
@@ -64,12 +64,29 @@ async def get_stats(code: str):
     if not document:
         raise HTTPException(status_code=404, detail="Short URL not found")
 
+    click_count = cassandra_service.get_click_count(code)
+
     return StatsResponse(
         short_code=document["short_code"],
         original_url=document["original_url"],
-        click_count=document.get("click_count", 0),
+        click_count=click_count,
         created_at=document["created_at"],
         expires_at=document.get("expires_at"),
+    )
+
+
+@router.get("/analytics/{code}", response_model=AnalyticsResponse)
+async def get_analytics(code: str):
+    document = await database.db["urls"].find_one({"short_code": code})
+    if not document:
+        raise HTTPException(status_code=404, detail="Short URL not found")
+
+    clicks = cassandra_service.get_clicks(code)
+
+    return AnalyticsResponse(
+        short_code=code,
+        total_clicks=len(clicks),
+        clicks=[ClickEvent(clicked_at=c["clicked_at"]) for c in clicks],
     )
 
 
@@ -77,12 +94,7 @@ async def get_stats(code: str):
 async def redirect_url(code: str):
     cached_url = await get_cached_url(code)
     if cached_url:
-        # Increment click counter even on cache hit
-        await database.db["urls"].update_one(
-            {"short_code": code},
-            {"$inc": {"click_count": 1}}
-        )
-        await publish_click_event(code)  # fire click event to Kafka
+        await publish_click_event(code)
         return RedirectResponse(url=cached_url, status_code=307)
 
     document = await database.db["urls"].find_one({"short_code": code})
@@ -90,11 +102,5 @@ async def redirect_url(code: str):
         raise HTTPException(status_code=404, detail="Short URL not found")
 
     await set_cached_url(code, document["original_url"])
-
-    # Increment click counter
-    await database.db["urls"].update_one(
-        {"short_code": code},
-        {"$inc": {"click_count": 1}}
-    )
-    await publish_click_event(code)  # fire click event to Kafka
+    await publish_click_event(code)
     return RedirectResponse(url=document["original_url"], status_code=307)

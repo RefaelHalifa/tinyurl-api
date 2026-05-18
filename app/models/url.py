@@ -33,4 +33,13 @@ class URLDocument(BaseModel):
     original_url: str
     created_at: datetime
     expires_at: Optional[datetime] = None
-    click_count: int = 0          # tracks total redirects, default 0
+
+
+class ClickEvent(BaseModel):
+    clicked_at: datetime
+
+
+class AnalyticsResponse(BaseModel):
+    short_code: str
+    total_clicks: int
+    clicks: list[ClickEvent]

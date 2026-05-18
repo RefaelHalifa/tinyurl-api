@@ -4,6 +4,7 @@ from app.database import connect_db, close_db
 from app.routes.health import router as health_router
 from app.routes import urls
 from app.services.kafka_producer import start_producer, stop_producer
+from app.services.cassandra_service import cassandra_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -12,12 +13,16 @@ async def lifespan(app: FastAPI):
     print("✅ Connected to MongoDB")
     await start_producer()
     print("✅ Kafka producer started")
+    cassandra_service.connect()
+    print("✅ Connected to Cassandra")
     yield
     # === SHUTDOWN — runs after the app stops accepting requests ===
     await close_db()
     print("🛑 MongoDB connection closed")
     await stop_producer()
     print("🛑 Kafka producer stopped")
+    cassandra_service.disconnect()
+    print("🛑 Cassandra connection closed")
 
 app = FastAPI(
     title="TinyURL API",
