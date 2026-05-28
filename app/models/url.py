@@ -1,6 +1,7 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, field_validator
 from typing import Optional
 from datetime import datetime
+import re
 
 
 class ShortenRequest(BaseModel):
@@ -8,6 +9,17 @@ class ShortenRequest(BaseModel):
     original_url: HttpUrl
     custom_code: Optional[str] = None
     ttl_days: Optional[int] = 30
+
+    @field_validator("custom_code")
+    @classmethod
+    def validate_custom_code(cls, v):
+        if v is None:
+            return v
+        if len(v) < 3 or len(v) > 20:
+            raise ValueError("Custom code must be between 3 and 20 characters")
+        if not re.match(r"^[a-zA-Z0-9_-]+$", v):
+            raise ValueError("Custom code may only contain letters, numbers, hyphens, and underscores")
+        return v
 
 
 class ShortenResponse(BaseModel):

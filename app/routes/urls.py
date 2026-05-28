@@ -101,6 +101,9 @@ async def redirect_url(code: str):
     if not document:
         raise HTTPException(status_code=404, detail="Short URL not found")
 
+    if document.get("expires_at") and document["expires_at"] < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="This short URL has expired")
+
     await set_cached_url(code, document["original_url"])
     await publish_click_event(code)
     return RedirectResponse(url=document["original_url"], status_code=307)
