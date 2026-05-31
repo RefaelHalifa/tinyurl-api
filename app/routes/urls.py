@@ -15,7 +15,21 @@ BASE_URL = "http://localhost:8000"
 MAX_RETRIES = 5  # max collision retries before giving up
 
 
-@router.post("/shorten", response_model=ShortenResponse)
+@router.post(
+    "/shorten",
+    response_model=ShortenResponse,
+    summary="Shorten a URL",
+    description=(
+        "Creates a shortened URL for the given original URL.\n\n"
+        "- Optionally provide a **custom alias** (3–20 alphanumeric chars, hyphens, underscores)\n"
+        "- Optionally set a **TTL in days** (default: 30). The short URL expires after this period.\n"
+        "- Returns the generated short code and the full short URL."
+    ),
+    responses={
+        409: {"description": "Custom alias is already taken"},
+        422: {"description": "Validation error — invalid URL or custom code format"},
+    },
+)
 async def shorten_url(request: ShortenRequest):
     original_url = str(request.original_url)
 
@@ -58,7 +72,19 @@ async def shorten_url(request: ShortenRequest):
     )
 
 
-@router.get("/stats/{code}", response_model=StatsResponse)
+@router.get(
+    "/stats/{code}",
+    response_model=StatsResponse,
+    summary="Get URL stats",
+    description=(
+        "Returns metadata and total click count for a short code.\n\n"
+        "- `click_count` is read from Cassandra (the analytics store)\n"
+        "- Does **not** trigger a redirect or increment the counter"
+    ),
+    responses={
+        404: {"description": "Short code not found"},
+    },
+)
 async def get_stats(code: str):
     document = await database.db["urls"].find_one({"short_code": code})
     if not document:
@@ -75,7 +101,20 @@ async def get_stats(code: str):
     )
 
 
-@router.get("/analytics/{code}", response_model=AnalyticsResponse)
+@router.get(
+    "/analytics/{code}",
+    response_model=AnalyticsResponse,
+    summary="Get click history",
+    description=(
+        "Returns the full click history for a short code, with individual timestamps.\n\n"
+        "- Each entry represents one redirect event\n"
+        "- Timestamps are stored in Cassandra using `TIMEUUID` for time-ordered retrieval\n"
+        "- Does **not** trigger a redirect or increment the counter"
+    ),
+    responses={
+        404: {"description": "Short code not found"},
+    },
+)
 async def get_analytics(code: str):
     document = await database.db["urls"].find_one({"short_code": code})
     if not document:
@@ -90,7 +129,22 @@ async def get_analytics(code: str):
     )
 
 
-@router.get("/{code}")
+@router.get(
+    "/{code}",
+    summary="Redirect to original URL",
+    description=(
+        "Redirects the client to the original URL associated with the given short code.\n\n"
+        "- Checks Redis cache first; falls back to MongoDB on cache miss\n"
+        "- Publishes a click event to Kafka for async analytics processing\n"
+        "- Returns `307 Temporary Redirect`\n"
+        "- Returns `410 Gone` if the short URL has expired"
+    ),
+    responses={
+        307: {"description": "Redirect to the original URL"},
+        404: {"description": "Short code not found"},
+        410: {"description": "Short URL has expired"},
+    },
+)
 async def redirect_url(code: str):
     cached_url = await get_cached_url(code)
     if cached_url:
@@ -101,8 +155,12 @@ async def redirect_url(code: str):
     if not document:
         raise HTTPException(status_code=404, detail="Short URL not found")
 
-    if document.get("expires_at") and document["expires_at"] < datetime.now(timezone.utc):
-        raise HTTPException(status_code=410, detail="This short URL has expired")
+    if document.get("expires_at"):
+        expires_at = document["expires_at"]
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=410, detail="This short URL has expired")
 
     await set_cached_url(code, document["original_url"])
     await publish_click_event(code)
